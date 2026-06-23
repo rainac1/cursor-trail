@@ -79,7 +79,7 @@ bool WindowsOverlay::Initialize()
 
     // Create layered window for transparent overlay
     m_hwnd = CreateWindowExW(
-        WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW,
+        WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
         L"CursorTrailOverlay",
         L"Cursor Trail",
         WS_POPUP,
@@ -431,6 +431,11 @@ LRESULT CALLBACK WindowsOverlay::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
             PostQuitMessage(0);
             return 0;
 
+        // Handle hit-testing to keep the window click-through (replaces WS_EX_TRANSPARENT
+        // which was removed because it prevents WM_INPUT delivery on modern Windows).
+        case WM_NCHITTEST:
+            return HTTRANSPARENT;
+
         case WM_INPUT:
             {
                 WindowsOverlay* pOverlay = reinterpret_cast<WindowsOverlay*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
@@ -438,6 +443,10 @@ LRESULT CALLBACK WindowsOverlay::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
                     pOverlay->HandleRawMouseInput(reinterpret_cast<HRAWINPUT>(lParam));
                 }
             }
+            // Call DefWindowProc so the system can free the raw input handle.
+            // The application should return zero after processing, but DefWindowProc
+            // must be called for the handle to be released.
+            DefWindowProc(hwnd, uMsg, wParam, lParam);
             return 0;
             
         default:
