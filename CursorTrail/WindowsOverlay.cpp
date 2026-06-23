@@ -179,7 +179,7 @@ void WindowsOverlay::QueueTrailPoint(float x, float y)
     POINT point = { static_cast<LONG>(x), static_cast<LONG>(y) };
     m_queuedTrailPoints.push_back(point);
 
-    const size_t maxQueuedPoints = static_cast<size_t>((std::max)(1, g_config.maxParticles));
+    constexpr size_t maxQueuedPoints = 8192;
     if (m_queuedTrailPoints.size() > maxQueuedPoints) {
         m_queuedTrailPoints.pop_front();
     }
@@ -212,7 +212,11 @@ void WindowsOverlay::HandleRawMouseInput(HRAWINPUT rawInputHandle)
     }
 
     const RAWMOUSE& rawMouse = rawInput->data.mouse;
-    if (rawMouse.lLastX == 0 && rawMouse.lLastY == 0) {
+    const bool isMovementPacket =
+        (rawMouse.usFlags & MOUSE_MOVE_ABSOLUTE) != 0 ||
+        rawMouse.lLastX != 0 ||
+        rawMouse.lLastY != 0;
+    if (!isMovementPacket) {
         return;
     }
 
