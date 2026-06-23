@@ -21,6 +21,12 @@ WindowsOverlay::WindowsOverlay()
     , m_hOldBitmap(nullptr)
     , m_screenWidth(0)
     , m_screenHeight(0)
+    , m_primaryScreenWidthMinusOne(0)
+    , m_primaryScreenHeightMinusOne(0)
+    , m_virtualScreenLeft(0)
+    , m_virtualScreenTop(0)
+    , m_virtualScreenWidthMinusOne(0)
+    , m_virtualScreenHeightMinusOne(0)
     , m_lastRawCursorPoint({ 0, 0 })
     , m_hasLastRawCursorPoint(false)
     , m_currentIndex(0)
@@ -49,6 +55,12 @@ bool WindowsOverlay::Initialize()
     // Get screen dimensions
     m_screenWidth = GetSystemMetrics(SM_CXSCREEN);
     m_screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    m_primaryScreenWidthMinusOne = (std::max)(1, m_screenWidth - 1);
+    m_primaryScreenHeightMinusOne = (std::max)(1, m_screenHeight - 1);
+    m_virtualScreenLeft = GetSystemMetrics(SM_XVIRTUALSCREEN);
+    m_virtualScreenTop = GetSystemMetrics(SM_YVIRTUALSCREEN);
+    m_virtualScreenWidthMinusOne = (std::max)(1, GetSystemMetrics(SM_CXVIRTUALSCREEN) - 1);
+    m_virtualScreenHeightMinusOne = (std::max)(1, GetSystemMetrics(SM_CYVIRTUALSCREEN) - 1);
 
     // Register window class
     WNDCLASSEXW wc = {};
@@ -182,8 +194,7 @@ void WindowsOverlay::QueueTrailPoint(float x, float y)
     m_queuedTrailPoints.push_back(point);
 
     // Keep enough packets to survive temporary frame stalls without unbounded growth.
-    constexpr size_t maxQueuedPoints = 8192;
-    if (m_queuedTrailPoints.size() > maxQueuedPoints) {
+    if (m_queuedTrailPoints.size() > kMaxQueuedTrailPoints) {
         m_queuedTrailPoints.pop_front();
     }
 }
@@ -191,7 +202,7 @@ void WindowsOverlay::QueueTrailPoint(float x, float y)
 void WindowsOverlay::ProcessQueuedTrailPoints()
 {
     while (!m_queuedTrailPoints.empty()) {
-        const POINT point = m_queuedTrailPoints.front();
+        const POINT& point = m_queuedTrailPoints.front();
         AddTrailPart(TrailPart(static_cast<float>(point.x), static_cast<float>(point.y), g_config.fadeTime));
         m_queuedTrailPoints.pop_front();
     }
@@ -233,10 +244,10 @@ void WindowsOverlay::HandleRawMouseInput(HRAWINPUT rawInputHandle)
     POINT cursorPos = m_lastRawCursorPoint;
     if ((rawMouse.usFlags & MOUSE_MOVE_ABSOLUTE) != 0) {
         const bool useVirtualDesktop = (rawMouse.usFlags & MOUSE_VIRTUAL_DESKTOP) != 0;
-        const int left = useVirtualDesktop ? GetSystemMetrics(SM_XVIRTUALSCREEN) : 0;
-        const int top = useVirtualDesktop ? GetSystemMetrics(SM_YVIRTUALSCREEN) : 0;
-        const int width = (std::max)(1, GetSystemMetrics(useVirtualDesktop ? SM_CXVIRTUALSCREEN : SM_CXSCREEN) - 1);
-        const int height = (std::max)(1, GetSystemMetrics(useVirtualDesktop ? SM_CYVIRTUALSCREEN : SM_CYSCREEN) - 1);
+        const int left = useVirtualDesktop ? m_virtualScreenLeft : 0;
+        const int top = useVirtualDesktop ? m_virtualScreenTop : 0;
+        const int width = useVirtualDesktop ? m_virtualScreenWidthMinusOne : m_primaryScreenWidthMinusOne;
+        const int height = useVirtualDesktop ? m_virtualScreenHeightMinusOne : m_primaryScreenHeightMinusOne;
 
         cursorPos.x = left + MulDiv(rawMouse.lLastX, width, 65535);
         cursorPos.y = top + MulDiv(rawMouse.lLastY, height, 65535);

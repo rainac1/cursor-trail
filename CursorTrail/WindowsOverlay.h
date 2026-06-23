@@ -32,6 +32,8 @@ public:
     bool IsActive() const { return m_hwnd != nullptr; }
     
 private:
+    static constexpr size_t kMaxQueuedTrailPoints = 8192;
+
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     void DrawTrail(Gdiplus::Graphics& graphics);
     void AddTrailPart(const TrailPart& part);
@@ -48,6 +50,12 @@ private:
     
     int m_screenWidth;
     int m_screenHeight;
+    int m_primaryScreenWidthMinusOne;
+    int m_primaryScreenHeightMinusOne;
+    int m_virtualScreenLeft;
+    int m_virtualScreenTop;
+    int m_virtualScreenWidthMinusOne;
+    int m_virtualScreenHeightMinusOne;
     
     std::vector<TrailPart> m_trailParts;
     std::deque<POINT> m_queuedTrailPoints;
