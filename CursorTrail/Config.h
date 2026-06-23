@@ -12,7 +12,7 @@ struct Config
     
     // Trail behavior
     float fadeTime;             // How long particles last (default: 1.0)
-    float fadeRate;             // How fast particles fade per frame (default: 0.05)
+    float fadeRate;             // How fast particles fade per frame (default: 1.0)
     float spawnFrequency;       // Interpolation interval - lower = more dense trail (default: 6.0)
     int maxParticles;           // Maximum number of particles (default: 2048)
     
@@ -21,7 +21,7 @@ struct Config
         : spriteSize(15.0f)
         , texturePath("cursortrail.png")
         , fadeTime(1.0f)
-        , fadeRate(0.05f)
+        , fadeRate(1.0f)
         , spawnFrequency(6.0f)  // SPRITE_SIZE / 2.5
         , maxParticles(2048)
     {
