@@ -175,6 +175,24 @@ void WindowsOverlay::Update()
 {
     if (!m_hwnd) return;
 
+    if (m_queuedTrailPoints.empty()) {
+        POINT currentCursorPos = {};
+        if (GetCursorPos(&currentCursorPos)) {
+            bool shouldQueuePoint = false;
+            if (!m_hasLastRawCursorPoint) {
+                m_hasLastRawCursorPoint = true;
+                shouldQueuePoint = true;
+            } else if (currentCursorPos.x != m_lastRawCursorPoint.x || currentCursorPos.y != m_lastRawCursorPoint.y) {
+                shouldQueuePoint = true;
+            }
+
+            if (shouldQueuePoint) {
+                m_lastRawCursorPoint = currentCursorPos;
+                QueueTrailPoint(static_cast<float>(currentCursorPos.x), static_cast<float>(currentCursorPos.y));
+            }
+        }
+    }
+
     ProcessQueuedTrailPoints();
 
     // Update trail fade times - use configurable fade rate
