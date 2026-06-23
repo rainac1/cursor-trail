@@ -51,6 +51,8 @@ private:
     
     std::vector<TrailPart> m_trailParts;
     std::deque<POINT> m_queuedTrailPoints;
+    POINT m_lastRawCursorPoint;
+    bool m_hasLastRawCursorPoint;
     size_t m_currentIndex;
     
     std::unique_ptr<Gdiplus::Bitmap> m_trailTexture;

@@ -21,6 +21,8 @@ WindowsOverlay::WindowsOverlay()
     , m_hOldBitmap(nullptr)
     , m_screenWidth(0)
     , m_screenHeight(0)
+    , m_lastRawCursorPoint({ 0, 0 })
+    , m_hasLastRawCursorPoint(false)
     , m_currentIndex(0)
     , m_gdiplusToken(0)
 {
@@ -179,6 +181,7 @@ void WindowsOverlay::QueueTrailPoint(float x, float y)
     POINT point = { static_cast<LONG>(x), static_cast<LONG>(y) };
     m_queuedTrailPoints.push_back(point);
 
+    // Keep enough packets to survive temporary frame stalls without unbounded growth.
     constexpr size_t maxQueuedPoints = 8192;
     if (m_queuedTrailPoints.size() > maxQueuedPoints) {
         m_queuedTrailPoints.pop_front();
@@ -220,10 +223,30 @@ void WindowsOverlay::HandleRawMouseInput(HRAWINPUT rawInputHandle)
         return;
     }
 
-    POINT cursorPos;
-    if (GetCursorPos(&cursorPos)) {
-        QueueTrailPoint(static_cast<float>(cursorPos.x), static_cast<float>(cursorPos.y));
+    if (!m_hasLastRawCursorPoint) {
+        if (!GetCursorPos(&m_lastRawCursorPoint)) {
+            return;
+        }
+        m_hasLastRawCursorPoint = true;
     }
+
+    POINT cursorPos = m_lastRawCursorPoint;
+    if ((rawMouse.usFlags & MOUSE_MOVE_ABSOLUTE) != 0) {
+        const bool useVirtualDesktop = (rawMouse.usFlags & MOUSE_VIRTUAL_DESKTOP) != 0;
+        const int left = useVirtualDesktop ? GetSystemMetrics(SM_XVIRTUALSCREEN) : 0;
+        const int top = useVirtualDesktop ? GetSystemMetrics(SM_YVIRTUALSCREEN) : 0;
+        const int width = (std::max)(1, GetSystemMetrics(useVirtualDesktop ? SM_CXVIRTUALSCREEN : SM_CXSCREEN) - 1);
+        const int height = (std::max)(1, GetSystemMetrics(useVirtualDesktop ? SM_CYVIRTUALSCREEN : SM_CYSCREEN) - 1);
+
+        cursorPos.x = left + MulDiv(rawMouse.lLastX, width, 65535);
+        cursorPos.y = top + MulDiv(rawMouse.lLastY, height, 65535);
+    } else {
+        cursorPos.x += rawMouse.lLastX;
+        cursorPos.y += rawMouse.lLastY;
+    }
+
+    m_lastRawCursorPoint = cursorPos;
+    QueueTrailPoint(static_cast<float>(cursorPos.x), static_cast<float>(cursorPos.y));
 }
 
 void WindowsOverlay::RegisterRawInput()
