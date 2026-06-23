@@ -152,6 +152,8 @@ bool WindowsOverlay::Initialize()
     std::cout << "Windows overlay window created and shown successfully!" << std::endl;
     std::cout << "Screen size: " << m_screenWidth << "x" << m_screenHeight << std::endl;
 
+    RegisterRawInput();
+
     return true;
 }
 
@@ -159,52 +161,7 @@ void WindowsOverlay::Update()
 {
     if (!m_hwnd) return;
 
-    // Get global cursor position
-    POINT cursorPos;
-    if (GetCursorPos(&cursorPos)) {
-        TrailPart currentTrail(static_cast<float>(cursorPos.x), static_cast<float>(cursorPos.y), g_config.fadeTime);
-        
-        // Calculate previous index BEFORE adding current trail
-        size_t prevIndex = (m_currentIndex == 0) ? m_trailParts.size() - 1 : m_currentIndex - 1;
-        
-        // Add the current cursor position to trail (match OpenGL version exactly)
-        AddTrailPart(currentTrail);
-        
-        // Interpolate trail between current and previous position ONLY (like OpenGL Game.cpp)
-        const TrailPart& previousTrail = m_trailParts[prevIndex];
-        
-        float dx = currentTrail.x - previousTrail.x;
-        float dy = currentTrail.y - previousTrail.y;
-        float distance = std::sqrt(dx * dx + dy * dy);
-        
-        // Avoid division by zero and match OpenGL logic exactly
-        if (distance > 0.0f) {
-            float dirX = dx / distance;
-            float dirY = dy / distance;
-            
-            // Use configurable interpolation interval
-            float interval = g_config.spawnFrequency;
-            float stopAt = distance;
-            
-            for (float d = interval; d < stopAt; d += interval) {
-                float interpX = previousTrail.x + dirX * d;
-                float interpY = previousTrail.y + dirY * d;
-                AddTrailPart(TrailPart(interpX, interpY, g_config.fadeTime));
-            }
-        }
-        
-        // Debug output (first few seconds only)
-        static int debugCounter = 0;
-        if (debugCounter < 60) { // Print for first 60 frames only
-            std::cout << "Cursor at: " << cursorPos.x << "," << cursorPos.y << " Trail parts active: ";
-            int activeCount = 0;
-            for (const auto& part : m_trailParts) {
-                if (part.time > 0.0f) activeCount++;
-            }
-            std::cout << activeCount << std::endl;
-            debugCounter++;
-        }
-    }
+    ProcessQueuedTrailPoints();
 
     // Update trail fade times - use configurable fade rate
     for (auto& part : m_trailParts) {
@@ -214,6 +171,67 @@ void WindowsOverlay::Update()
                 part.time = 0.0f;
             }
         }
+    }
+}
+
+void WindowsOverlay::QueueTrailPoint(float x, float y)
+{
+    POINT point = { static_cast<LONG>(x), static_cast<LONG>(y) };
+    m_queuedTrailPoints.push_back(point);
+
+    const size_t maxQueuedPoints = static_cast<size_t>((std::max)(1, g_config.maxParticles));
+    if (m_queuedTrailPoints.size() > maxQueuedPoints) {
+        m_queuedTrailPoints.pop_front();
+    }
+}
+
+void WindowsOverlay::ProcessQueuedTrailPoints()
+{
+    while (!m_queuedTrailPoints.empty()) {
+        const POINT point = m_queuedTrailPoints.front();
+        AddTrailPart(TrailPart(static_cast<float>(point.x), static_cast<float>(point.y), g_config.fadeTime));
+        m_queuedTrailPoints.pop_front();
+    }
+}
+
+void WindowsOverlay::HandleRawMouseInput(HRAWINPUT rawInputHandle)
+{
+    UINT rawInputSize = 0;
+    if (GetRawInputData(rawInputHandle, RID_INPUT, nullptr, &rawInputSize, sizeof(RAWINPUTHEADER)) != 0 || rawInputSize == 0) {
+        return;
+    }
+
+    std::vector<BYTE> rawBuffer(rawInputSize);
+    if (GetRawInputData(rawInputHandle, RID_INPUT, rawBuffer.data(), &rawInputSize, sizeof(RAWINPUTHEADER)) != rawInputSize) {
+        return;
+    }
+
+    const RAWINPUT* rawInput = reinterpret_cast<const RAWINPUT*>(rawBuffer.data());
+    if (rawInput->header.dwType != RIM_TYPEMOUSE) {
+        return;
+    }
+
+    const RAWMOUSE& rawMouse = rawInput->data.mouse;
+    if (rawMouse.lLastX == 0 && rawMouse.lLastY == 0) {
+        return;
+    }
+
+    POINT cursorPos;
+    if (GetCursorPos(&cursorPos)) {
+        QueueTrailPoint(static_cast<float>(cursorPos.x), static_cast<float>(cursorPos.y));
+    }
+}
+
+void WindowsOverlay::RegisterRawInput()
+{
+    RAWINPUTDEVICE rawInputDevice = {};
+    rawInputDevice.usUsagePage = 0x01; // Generic desktop controls
+    rawInputDevice.usUsage = 0x02;     // Mouse
+    rawInputDevice.dwFlags = RIDEV_INPUTSINK;
+    rawInputDevice.hwndTarget = m_hwnd;
+
+    if (!RegisterRawInputDevices(&rawInputDevice, 1, sizeof(rawInputDevice))) {
+        std::cerr << "Failed to register raw mouse input, error: " << GetLastError() << std::endl;
     }
 }
 
@@ -355,6 +373,15 @@ LRESULT CALLBACK WindowsOverlay::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
             
         case WM_DESTROY:
             PostQuitMessage(0);
+            return 0;
+
+        case WM_INPUT:
+            {
+                WindowsOverlay* pOverlay = reinterpret_cast<WindowsOverlay*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+                if (pOverlay) {
+                    pOverlay->HandleRawMouseInput(reinterpret_cast<HRAWINPUT>(lParam));
+                }
+            }
             return 0;
             
         default:

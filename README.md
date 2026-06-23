@@ -50,7 +50,7 @@ texture=cursortrail.png # Path to trail texture image
 
 # Trail behavior
 fadeTime=1.0            # How long particles last (seconds)
-fadeRate=0.05           # How fast particles fade per frame (0.0-1.0)
+fadeRate=1.0            # How fast particles fade per frame (0.0-1.0, 1.0 = 1 frame)
 spawnFrequency=6.0      # Spawn interval - lower = denser trail (pixels)
 maxParticles=2048       # Maximum number of particles
 ```
@@ -92,7 +92,7 @@ CursorTrail.exe --help
 - `--size <value>` - Set sprite size (default: 15)
 - `--texture <path>` - Set texture path (default: cursortrail.png)
 - `--fade-time <value>` - Set fade time (default: 1.0)
-- `--fade-rate <value>` - Set fade rate (default: 0.05)
+- `--fade-rate <value>` - Set fade rate (default: 1.0)
 - `--density <value>` - Set spawn density (default: 6.0)
 - `--particles <value>` - Set max particles (default: 2048)
 - `--config <file>` - Load config from file
@@ -167,4 +167,3 @@ See [WINDOWS11_FIX.md](WINDOWS11_FIX.md) for detailed technical information.
 | macOS | OpenGL + GLFW | Good | Limited |
 
 The Windows implementation uses layered windows with true alpha blending for the most reliable cursor trail experience on modern Windows systems.
-

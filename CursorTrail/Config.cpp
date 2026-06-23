@@ -81,7 +81,7 @@ bool Config::LoadFromFile(const std::string& filename)
                 fadeRate = std::stof(value);
                 if (fadeRate <= 0 || fadeRate > 1.0f) {
                     std::cout << "Warning: fadeRate must be between 0 and 1, using default." << std::endl;
-                    fadeRate = 0.05f;
+                    fadeRate = 1.0f;
                 }
             }
             else if (key == "spawnfrequency" || key == "spawn_frequency" || key == "density") {
@@ -210,7 +210,7 @@ void Config::SetDefaults()
     spriteSize = 15.0f;
     texturePath = "cursortrail.png";
     fadeTime = 1.0f;
-    fadeRate = 0.05f;
+    fadeRate = 1.0f;
     spawnFrequency = 6.0f;
     maxParticles = 2048;
 }

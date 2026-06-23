@@ -12,6 +12,7 @@
 #include <propidl.h>
 #include <gdiplus.h>
 #include <vector>
+#include <deque>
 #include <memory>
 #include "TrailPart.h"
 #include "Config.h"
@@ -34,6 +35,10 @@ private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     void DrawTrail(Gdiplus::Graphics& graphics);
     void AddTrailPart(const TrailPart& part);
+    void QueueTrailPoint(float x, float y);
+    void ProcessQueuedTrailPoints();
+    void HandleRawMouseInput(HRAWINPUT rawInputHandle);
+    void RegisterRawInput();
     
     HWND m_hwnd;
     HDC m_hdc;
@@ -45,6 +50,7 @@ private:
     int m_screenHeight;
     
     std::vector<TrailPart> m_trailParts;
+    std::deque<POINT> m_queuedTrailPoints;
     size_t m_currentIndex;
     
     std::unique_ptr<Gdiplus::Bitmap> m_trailTexture;
